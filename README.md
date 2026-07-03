@@ -31,7 +31,7 @@ ros2 launch f1tenth_gym_ros gym_bridge_launch.py &
 sleep 3
 
 # 3. Lanzar el obstáculo dinámico en segundo plano
-ros2 run f1tenth_lidar_pkg opponent_driver_node &
+ros2 run f1tenth_lidar_pkg opponent_driver &
 
 # 4. Lanzar el controlador principal Follow The Gap en primer plano
-ros2 run f1tenth_lidar_pkg follow_the_gap_node
+ros2 run f1tenth_lidar_pkg follow_the_gap
