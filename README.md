@@ -1,6 +1,6 @@
 # fdg_sin_obstaculos_pkg — Piloto Autónomo Follow The Gap (F1TENTH)
 
-Nodo ROS 2 que implementa el algoritmo Follow The Gap (FTG) con control PD, slew-rate, histéresis de selección de gap y ventana de visión dinámica, probado en la pista de Oschersleben dentro del simulador F1TENTH.
+Nodo ROS 2 que implementa el algoritmo Follow The Gap (FTG) con control PD, slew-rate, histéresis de selección de gap y ventana de visión dinámica, probado con éxito (10 vueltas sin colisiones) en la pista de Oschersleben dentro del simulador F1TENTH.
 
 ## Tabla de contenidos
 - [Requisitos](#requisitos)
@@ -13,12 +13,12 @@ Nodo ROS 2 que implementa el algoritmo Follow The Gap (FTG) con control PD, slew
 ## Requisitos
 * Ubuntu 22.04 (o compatible)
 * ROS 2 (Humble o Foxy)
-* `f1tenth_gym_ros` y `f1tenth_gym` instalados por separado en tu workspace (este repositorio no incluye el simulador, solo el paquete del piloto).
+* `f1tenth_gym_ros` y `f1tenth_gym` instalados por separado en tu workspace (este repositorio no incluye el simulador ni los mapas por defecto, solo el paquete del piloto).
 * Python 3.10+
 * Dependencias Python: `numpy` (`pip install numpy --break-system-packages`)
 
 ## Descarga e instalación
-Este paquete debe ubicarse dentro de la carpeta `src/` de un workspace de ROS 2 ya existente, junto al simulador `f1tenth_gym_ros`.
+Este paquete debe ubicarse dentro de la carpeta `src/` de un workspace de ROS 2 junto al simulador `f1tenth_gym_ros` y el repositorio de mapas `f1tenth_racetracks`. Es obligatorio que la carpeta de mapas esté dentro de `src/` para que el simulador localice la pista.
 
 **1. Crear (o reutilizar) el workspace**
 ```bash
@@ -26,16 +26,19 @@ mkdir -p ~/f1tenth_ws/src
 cd ~/f1tenth_ws/src
 ```
 
-**2. Clonar este repositorio**
-*(Asegúrate de copiar solo la carpeta del paquete dentro de `src/` si clonas un repositorio más grande)*
+**2. Clonar este repositorio y dependencias necesarias dentro de `src/`**
 ```bash
+# Clonar este repositorio y extraer el paquete del piloto
 git clone [https://github.com/shirleyandrea052004-sketch/Proyecto_parcial1.git](https://github.com/shirleyandrea052004-sketch/Proyecto_parcial1.git)
 mv Proyecto_parcial1/fdg_sin_obstaculos_pkg .
 rm -rf Proyecto_parcial1
-```
-*(Debes tener también el simulador clonado en esa misma carpeta `src/`: `git clone https://github.com/f1tenth/f1tenth_gym_ros.git`)*
 
-**3. Compilar**
+# Clonar el simulador oficial y la carpeta de mapas f1tenth_racetracks
+git clone [https://github.com/f1tenth/f1tenth_gym_ros.git](https://github.com/f1tenth/f1tenth_gym_ros.git)
+git clone [https://github.com/f1tenth/f1tenth_racetracks.git](https://github.com/f1tenth/f1tenth_racetracks.git)
+```
+
+**3. Compilar el entorno**
 ```bash
 cd ~/f1tenth_ws
 colcon build --packages-select fdg_sin_obstaculos_pkg f1tenth_gym_ros
@@ -49,13 +52,13 @@ source ~/f1tenth_ws/install/setup.bash
 ## Cómo ejecutar el nodo
 
 ### Configuración Previa del Simulador
-Antes de lanzar el entorno, es necesario configurar la ruta del mapa en el simulador para que coincida con el usuario de tu sistema local.
+Antes de lanzar el entorno, es necesario configurar la ruta absoluta del mapa en el simulador para que coincida con la ubicación en tu sistema local.
 1. Abre el archivo de configuración: `nano ~/f1tenth_ws/src/f1tenth_gym_ros/config/sim.yaml`
-2. Modifica la variable `map_path` con tu usuario para que apunte al mapa de Oschersleben:
+2. Modifica la variable `map_path` reemplazando `TU_USUARIO` con tu nombre de usuario en Ubuntu para apuntar al mapa de Oschersleben dentro de `f1tenth_racetracks`:
    `map_path: '/home/TU_USUARIO/f1tenth_ws/src/f1tenth_racetracks/Oschersleben/Oschersleben_map'`
 
 **1. Levanta el simulador F1TENTH**
-En una terminal (con el entorno sourceado):
+En una terminal (con el entorno sourceado): `source install/setup.bash`
 ```bash
 ros2 launch f1tenth_gym_ros gym_bridge_launch.py
 ```
@@ -73,7 +76,7 @@ Deberías ver en consola mensajes confirmando la conexión a la odometría y, ca
 fdg_sin_obstaculos_pkg/
 ├── fdg_sin_obstaculos_pkg/
 │   ├── __init__.py
-│   └── follow_the_gap_node.py 
+│   └── follow_the_gap_node.py     # Nodo principal
 ├── resource/
 ├── test/
 ├── package.xml
@@ -106,3 +109,4 @@ fdg_sin_obstaculos_pkg/
 | `steering_deadband` | Umbral mínimo de corrección aplicada | 0.015 rad |
 | `speed_low / speed_high` | Rango de velocidad para interpolar el FOV dinámico | 4.5 / 9.0 m/s |
 | `gap_switch_margin` | Cuánto debe superar un gap nuevo al anterior para reemplazarlo | 1.20 (20%) |
+```
