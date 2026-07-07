@@ -1,37 +1,108 @@
-# F1Tenth - Controlador Reactivo Follow The Gap
+# fdg_sin_obstaculos_pkg — Piloto Autónomo Follow The Gap (F1TENTH)
 
-Este repositorio contiene la implementación individual de un controlador puramente reactivo para el simulador F1Tenth, capaz de navegar pistas complejas y esquivar obstáculos dinámicos y estáticos a altas velocidades.
+Nodo ROS 2 que implementa el algoritmo Follow The Gap (FTG) con control PD, slew-rate, histéresis de selección de gap y ventana de visión dinámica, probado en la pista de Oschersleben dentro del simulador F1TENTH.
 
-## Explicación del Funcionamiento del Código
-El sistema de navegación autónoma opera mediante una versión avanzada del algoritmo Follow The Gap, ejecutando este ciclo continuo:
+## Tabla de contenidos
+- [Requisitos](#requisitos)
+- [Descarga e instalación](#descarga-e-instalación)
+- [Cómo ejecutar el nodo](#cómo-ejecutar-el-nodo)
+- [Estructura del repositorio](#estructura-del-repositorio)
+- [Qué hace el algoritmo, paso a paso](#qué-hace-el-algoritmo-paso-a-paso)
+- [Parámetros ajustables](#parámetros-ajustables)
 
-1. Preprocesamiento del LiDAR: Los datos del sensor pasan por un filtro de promedio móvil para suavizar el ruido e ignorar lecturas erróneas. Adicionalmente, el campo de visión se recorta a 180 grados frontales para evitar que el vehículo intente girar hacia atrás.
-2. Burbuja de Seguridad Dinámica: El algoritmo localiza el obstáculo más cercano y crea una zona de exclusión (burbuja) a su alrededor inflando matemáticamente el ancho del vehículo. Esta expansión es adaptativa: crece cuando el obstáculo está más lejos para forzar un esquive anticipado y se contrae de cerca para pasar por espacios reducidos.
-3. Identificación de Brechas: Se agrupan los rayos del escáner que están libres de obstáculos para identificar la brecha continua más amplia disponible en la pista.
-4. Trazada Híbrida Estabilizada: Para decidir hacia dónde apuntar dentro del espacio libre, el algoritmo calcula un vértice dinámico asignando un 60% de prioridad al centro del hueco (evitando rozar las esquinas de los muros) y un 40% a la profundidad máxima (manteniendo al vehículo en línea recta durante tramos largos).
-5. Controlador PD de Dirección: El ángulo objetivo se filtra a través de un Controlador Proporcional-Derivativo (PD) y un limitador de tasa de giro (Slew-Rate Limiter) adaptativo. Esto suprime las oscilaciones y garantiza que el servo de dirección responda con agilidad sin exceder los límites físicos del vehículo.
-6. Velocidad Reactiva (Radar Frontal): La aceleración es dinámica. Un radar que evalúa los rayos centrales frontales reduce la velocidad a 4.5 m/s o 3.5 m/s si detecta un muro cercano o si el vehículo está ejecutando un giro agresivo. En rectas completamente despejadas, acelera a 6.0 m/s.
+## Requisitos
+* Ubuntu 22.04 (o compatible)
+* ROS 2 (Humble o Foxy)
+* `f1tenth_gym_ros` y `f1tenth_gym` instalados por separado en tu workspace (este repositorio no incluye el simulador, solo el paquete del piloto).
+* Python 3.10+
+* Dependencias Python: `numpy` (`pip install numpy --break-system-packages`)
 
-## Estructura del Código
-* follow_the_gap_node.py: Nodo principal. Contiene el procesamiento del LiDAR, la lógica matemática del FTG, el controlador de la dirección, y el sistema de telemetría (cronómetro y contador de vueltas leyendo la odometría en /ego_racecar/odom).
-* opponent_driver_node.py: Nodo auxiliar configurado para actuar como obstáculo dinámico en la pista, cumpliendo con las pruebas de entorno multi-agente.
-* add_static_objects.py: Herramienta para pintar obstáculos estáticos en el mapa de la simulación.
+## Descarga e instalación
+Este paquete debe ubicarse dentro de la carpeta `src/` de un workspace de ROS 2 ya existente, junto al simulador `f1tenth_gym_ros`.
 
-## Instrucciones de Ejecución
-Para reproducir la simulación completa con obstáculos dinámicos desde una sola terminal, ejecuta el siguiente script en la raíz de tu espacio de trabajo:
-
+**1. Crear (o reutilizar) el workspace**
 ```bash
-# 1. Cargar el entorno de ROS 2
-source install/setup.bash
+mkdir -p ~/f1tenth_ws/src
+cd ~/f1tenth_ws/src
+```
 
-# 2. Lanzar el simulador y el mapa en segundo plano
-ros2 launch f1tenth_gym_ros gym_bridge_launch.py &
+**2. Clonar este repositorio**
+*(Asegúrate de copiar solo la carpeta del paquete dentro de `src/` si clonas un repositorio más grande)*
+```bash
+git clone [https://github.com/shirleyandrea052004-sketch/Proyecto_parcial1.git](https://github.com/shirleyandrea052004-sketch/Proyecto_parcial1.git)
+mv Proyecto_parcial1/fdg_sin_obstaculos_pkg .
+rm -rf Proyecto_parcial1
+```
+*(Debes tener también el simulador clonado en esa misma carpeta `src/`: `git clone https://github.com/f1tenth/f1tenth_gym_ros.git`)*
 
-# Esperar unos segundos a que el entorno cargue por completo
-sleep 3
+**3. Compilar**
+```bash
+cd ~/f1tenth_ws
+colcon build --packages-select fdg_sin_obstaculos_pkg f1tenth_gym_ros
+```
 
-# 3. Lanzar el obstáculo dinámico en segundo plano
-ros2 run f1tenth_lidar_pkg opponent_driver &
+**4. Configurar el entorno**
+```bash
+source ~/f1tenth_ws/install/setup.bash
+```
 
-# 4. Lanzar el controlador principal Follow The Gap en primer plano
-ros2 run f1tenth_lidar_pkg follow_the_gap
+## Cómo ejecutar el nodo
+
+### Configuración Previa del Simulador
+Antes de lanzar el entorno, es necesario configurar la ruta del mapa en el simulador para que coincida con el usuario de tu sistema local.
+1. Abre el archivo de configuración: `nano ~/f1tenth_ws/src/f1tenth_gym_ros/config/sim.yaml`
+2. Modifica la variable `map_path` con tu usuario para que apunte al mapa de Oschersleben:
+   `map_path: '/home/TU_USUARIO/f1tenth_ws/src/f1tenth_racetracks/Oschersleben/Oschersleben_map'`
+
+**1. Levanta el simulador F1TENTH**
+En una terminal (con el entorno sourceado):
+```bash
+ros2 launch f1tenth_gym_ros gym_bridge_launch.py
+```
+
+**2. Corre el nodo del piloto FTG**
+En otra terminal (también sourceada):
+```bash
+ros2 run fdg_sin_obstaculos_pkg follow_the_gap
+```
+
+Deberías ver en consola mensajes confirmando la conexión a la odometría y, cada vez que complete una vuelta, el tiempo registrado.
+
+## Estructura del paquete
+```text
+fdg_sin_obstaculos_pkg/
+├── fdg_sin_obstaculos_pkg/
+│   ├── __init__.py
+│   └── follow_the_gap_node.py 
+├── resource/
+├── test/
+├── package.xml
+├── setup.py
+├── setup.cfg
+└── README.md
+```
+
+## Qué hace el algoritmo
+* **Paso 0 — Preprocesamiento del LiDAR:** Los valores `inf`/`nan` se rellenan con la última lectura válida del mismo rayo para evitar dropouts. Se aplica un suavizado por convolución (media móvil, ventana 5).
+* **Paso 1 — Burbuja de seguridad:** Se identifica el punto más cercano y se "borra" una franja angular a su alrededor del ancho del auto.
+* **Paso 2 — Ventana de visión dinámica:** El FOV se ajusta según la velocidad (más angosto en rectas, amplio en curvas). Se agrupan lecturas válidas en "gaps" y se elige el más largo aplicando histéresis para evitar saltos bruscos.
+* **Paso 3 — Trazada dentro del gap:** El punto objetivo mezcla el punto más profundo del gap y el centro del mismo, ajustándose según la estabilidad de la escena (EMA).
+* **Paso 4 — Filtro EMA:** El ángulo objetivo se suaviza con una media móvil exponencial antes del controlador.
+* **Paso 5 — Control PD + slew-rate:** Un controlador calcula la dirección, limitada por un slew-rate (cambios máximos permitidos) y un deadband que ignora correcciones minúsculas.
+* **Paso 6 — Acelerador:** La velocidad se interpola dinámicamente dependiendo del ángulo de giro actual y la distancia libre frontal.
+
+## Parámetros ajustables
+
+| Parámetro | Rol | Valor actual |
+| :--- | :--- | :--- |
+| `car_width` | Ancho usado para la burbuja de seguridad | 1.67 |
+| `hard_min_clearance` | Distancia mínima considerada "camino válido" | 0.55 m |
+| `bubble_min_dist` | Piso de distancia para el cálculo de la burbuja | 0.28 m |
+| `max_weight_depth` | Máximo peso hacia el punto más profundo del gap | 0.60 |
+| `ema_alpha` | Suavizado del ángulo objetivo | 0.45 |
+| `Kp / Kd` | Ganancias del controlador PD | 0.50 / 0.46 |
+| `rate_open / rate_tight` | Límite de cambio de dirección por ciclo | 0.05 / 0.09 rad |
+| `angle_trigger_min / _max`| Umbrales que gradúan el slew-rate | 0.07 / 0.27 rad |
+| `steering_deadband` | Umbral mínimo de corrección aplicada | 0.015 rad |
+| `speed_low / speed_high` | Rango de velocidad para interpolar el FOV dinámico | 4.5 / 9.0 m/s |
+| `gap_switch_margin` | Cuánto debe superar un gap nuevo al anterior para reemplazarlo | 1.20 (20%) |
