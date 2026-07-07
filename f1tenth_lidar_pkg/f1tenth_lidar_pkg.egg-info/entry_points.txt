@@ -1,8 +1,0 @@
-[console_scripts]
-follow_the_gap = f1tenth_lidar_pkg.follow_the_gap_node:main
-lidar_analysis = f1tenth_lidar_pkg.lidar_analysis_node:main
-opponent_driver = f1tenth_lidar_pkg.opponent_driver_node:main
-pure_pursuit = f1tenth_lidar_pkg.pure_pursuit_node:main
-simple_drive = f1tenth_lidar_pkg.simple_drive_node:main
-static_objects = f1tenth_lidar_pkg.add_static_objects:main
-
